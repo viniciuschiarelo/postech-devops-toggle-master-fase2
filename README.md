@@ -86,7 +86,7 @@ docker compose ps
 
 O ciclo completo de execução da aplicação local, validação de regras, infraestrutura implantada na AWS e acesso à API integrada ao banco de dados pode ser visualizado no vídeo de demonstração:
 
-▶️ [Assistir ao Vídeo de Demonstração no YouTube]()
+▶️ [Assistir ao Vídeo de Demonstração no YouTube](https://youtu.be/wJyUsJrKGtI)
 
 ---
 
