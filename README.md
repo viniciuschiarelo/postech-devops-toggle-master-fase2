@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="https://avatars.githubusercontent.com/u/79948663?s=200&v=4" alt="img" width="150"><br>
-  <h3>Tech Challenge - Fase 2</h3>
-</div><br>
+  <img src="https://avatars.githubusercontent.com/u/79948663?s=200&v=4" alt="FIAP" width="150"><br>
+  <h3>Tech Challenge — Fase 2 (Pós-Tech DevOps)</h3>
+</div>
 
 # ToggleMaster — Ecossistema de Microsserviços em Kubernetes (AWS EKS)
 
@@ -16,15 +16,15 @@
   <img src="https://img.shields.io/badge/DynamoDB-4053D6?style=for-the-badge&logo=amazondynamodb&logoColor=white" alt="DynamoDB">
 </p>
 
-## Sobre o Projeto
+## 1. Sobre o Projeto
 
-O **ToggleMaster** é uma plataforma centralizada para gerenciamento e avaliação de **Feature Flags (Feature Toggles)** desenvolvida para a *DevOps Solutions Inc.* Após o sucesso do MVP monolítico na Fase 1, o aumento na demanda exigiu a evolução da plataforma para resolver gargalos de performance e escalabilidade.
+O **ToggleMaster** é uma plataforma centralizada para gerenciamento e avaliação de **Feature Flags (Feature Toggles)** desenvolvida para a *DevOps Solutions Inc.* Após o sucesso do MVP monolítico na Fase 1, a alta demanda exigiu a evolução da solução para resolver gargalos de performance e escalabilidade.
 
-Este repositório contém a entrega da **Fase 2 do Tech Challenge**, documentando a decomposição e migração do sistema para uma **arquitetura distribuída de 5 microsserviços**, conteinerizada com Docker (builds multi-stage) e orquestrada em um cluster **Amazon EKS (Kubernetes)** integrado aos serviços gerenciados de persistência, cache e mensageria da AWS.
+Esta entrega documenta a decomposição e migração do monólito para um **ecossistema distribuído de 5 microsserviços**, conteinerizados com Docker (builds multi-stage em Go e otimizações em Python) e orquestrados em um cluster **Amazon EKS (Kubernetes)** integrado aos serviços gerenciados de persistência, cache e mensageria da AWS.
 
 ---
 
-## 🏗️ Arquitetura dos Microsserviços
+## 2. Arquitetura dos Microsserviços
 
 O ecossistema foi dividido em serviços desacoplados e isolados por **Namespaces** no Kubernetes:
 
@@ -33,72 +33,118 @@ O ecossistema foi dividido em serviços desacoplados e isolados por **Namespaces
 | **`auth-service`** | Go 1.22 | Autenticação, gestão de permissões e chaves de API. | Amazon RDS PostgreSQL (`toggle-auth-db`) |
 | **`flag-service`** | Python 3.12 | CRUD e manutenção das definições de feature flags. | Amazon RDS PostgreSQL (`toggle-flag-db`) |
 | **`targeting-service`** | Python 3.12 | Regras complexas de segmentação de público e contexto. | Amazon RDS PostgreSQL (`toggle-targeting-db`) |
-| **`evaluation-service`** | Go 1.22 | *Hot path* de altíssima performance responsável por retornar a decisão final (`true`/`false`). | Amazon ElastiCache (Redis) + Produtor Amazon SQS |
+| **`evaluation-service`** | Go 1.22 | *Hot path* de alta performance que retorna a decisão final (`true`/`false`). | Amazon ElastiCache (Redis) + Produtor Amazon SQS |
 | **`analytics-service`** | Python 3.12 | Consumo assíncrono de eventos de métricas e telemetria de uso. | Consumidor Amazon SQS + Amazon DynamoDB |
 
 ---
 
-## 🛠️ Infraestrutura e Nuvem (AWS & Kubernetes)
+## 3. Subindo a Aplicação Localmente (Docker Compose)
 
-A infraestrutura do projeto foi provisionada de forma automatizada e declarativa via **`eksctl`** em conta pessoal (Opção B), permitindo a utilização de recursos nativos de IAM sem as restrições de permissões do ambiente AWS Academy.
+Para validação e testes de integração local, o projeto conta com um arquivo `docker-compose.yml` que inicializa **9 contêineres** (5 microsserviços + 2 PostgreSQL + 1 Redis + 1 DynamoDB Local).
 
-### Componentes de Infraestrutura:
-* **Amazon EKS (`toggle-master-cluster`):** Cluster Kubernetes v1.29 provisionado via `eksctl`, com Managed Node Group (`t3.medium`) distribuído em auto-scaling (Mín: 1, Desejado: 2, Máx: 4).
-* **Amazon ECR:** Repositórios privados dedicados para versionamento das imagens Docker multi-stage de cada um dos 5 serviços.
-* **Amazon RDS PostgreSQL (x3):** Três instâncias de banco de dados relacional independentes (`db.t3.micro`), garantindo o completo isolamento da camada de dados entre os domínios de `auth`, `flags` e `targeting`.
-* **Amazon ElastiCache for Redis:** Cluster em memória responsável pelo cache de leitura de baixíssima latência no *hot path* do `evaluation-service`.
-* **Amazon SQS:** Fila de eventos do tipo *Standard* para o desacoplamento assíncrono entre a produção de eventos de avaliação (`evaluation`) e seu processamento (`analytics`).
-* **Amazon DynamoDB:** Tabela NoSQL (`AnalyticsEvents`) operando em modo *On-Demand* para rápida gravação e persistência de dados analíticos.
-
----
-
-## 🔒 Segurança, Segredos e Ingress
-
-* **Nginx Ingress Controller:** Ponto único de entrada do cluster via AWS Load Balancer, roteando chamadas HTTP diretamente para os serviços ClusterIP por prefixos de rota (`/auth`, `/flags`, `/targeting`, `/evaluate`, `/events`).
-* **ConfigMaps & Secrets:** Segregação estrita entre configurações não sensíveis (URLs internas, tabelas) e dados sensíveis (credenciais codificadas em `base64`), gerados dinamicamente no deploy.
-* **IAM Roles for Service Accounts (IRSA):** Permissões de acesso aos recursos AWS (SQS e DynamoDB) vinculadas diretamente às *ServiceAccounts* dos pods, eliminando a necessidade de credenciais estáticas (`Access Keys`) no cluster.
-
----
-
-## ⚡ Escalabilidade Automática (HPA)
-
-O ambiente foi configurado com **Horizontal Pod Autoscaling (HPA)** monitorando a utilização média de CPU e recursos do cluster:
-* **`evaluation-service`:** Escalonamento dinâmico ajustado para responder ao aumento de tráfego sintético no *hot path*.
-* **`analytics-service`:** Escalonamento configurado para suprir a demanda de processamento de mensagens em momentos de pico na fila SQS.
-
----
-
-## 🧪 Ambiente Local (Docker Compose)
-
-Para validação e testes de integração local, o arquivo `docker-compose.yml` na raiz do repositório inicializa **9 contêineres** (5 microsserviços + 2 PostgreSQL + 1 Redis + 1 DynamoDB Local):
+### Execução Local:
 
 ```bash
-# Subir todo o ecossistema localmente
+# Subir todo o ecossistema localmente em background
 docker compose up -d
 
-# Validar o status de integridade dos serviços
+# Validar o status de integridade dos 9 contêineres
 docker compose ps
----
 
 ```
 
-## Demonstração Prática
+---
 
-O ciclo completo de execução da aplicação local, validação de regras, infraestrutura implantada na AWS e acesso à API integrada ao banco de dados pode ser visualizado no vídeo de demonstração:
+## 4. Orquestração e Implantação no Kubernetes (AWS EKS)
 
-▶️ [Assistir ao Vídeo de Demonstração no YouTube](https://youtu.be/wJyUsJrKGtI)
+A infraestrutura foi provisionada via `eksctl` em conta pessoal (Opção B), permitindo a utilização de recursos nativos de IAM via IRSA (*IAM Roles for Service Accounts*) para segurança e granularidade de acesso.
+
+### Principais Componentes de Infraestrutura
+
+- **Cluster EKS**: Cluster Kubernetes `v1.29` com *Managed Node Group* (`t3.medium`) e *Auto Scaling* (Mín: 1, Desejado: 2, Máx: 4).
+- **Metrics Server**: Instalado no cluster para coleta de métricas de CPU/Memória, essencial para o funcionamento do HPA.
+- **ConfigMaps & Secrets**: Segregação estrita de variáveis não sensíveis e credenciais codificadas em `base64`.
+
+### Comandos de Implantação Local/Kubeconfig
+
+```bash
+# 1. Configurar o contexto do kubectl para o cluster EKS
+aws eks update-kubeconfig --region us-east-1 --name toggle-master-cluster
+
+# 2. Aplicar os manifestos de cada microsserviço
+kubectl apply -f k8s/
+
+# 3. Verificar o status dos Pods em todos os namespaces
+kubectl get pods -A
+```
 
 ---
 
-## Integrantes — Grupo 25
+## 5. Acesso Externo e Roteamento (Nginx Ingress)
 
-* **Thiago Souza**
-* **Larissa Nunes**
-* **Luiz Ferreira**
-* **Nicholas Lima**
-* **Vinicius Chiarelo**
-* **Vinicius Chiarelo**
+O Nginx Ingress Controller foi implantado via Helm, provisionando automaticamente um Load Balancer na AWS como ponto único de entrada da aplicação.
+
+### Tabela de Roteamento (Ingress Rules)
+
+| Rota Externa | Serviço Destino (ClusterIP) | Porta |
+| :--- | :--- | :---: |
+| `/auth` | `auth-service` | `8080` |
+| `/flags` | `flag-service` | `8000` |
+| `/targeting` | `targeting-service` | `8000` |
+| `/evaluate` | `evaluation-service` | `8080` |
+| `/events` | `analytics-service` | `8000` |
+
+### Teste de Acesso Externo
+
+```bash
+# Obter o endereço do Load Balancer
+INGRESS_HOST=$(kubectl get ingress -n evaluation -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
+
+# Validar o healthcheck do caminho quente (evaluation-service)
+curl -i http://$INGRESS_HOST/evaluate/health
+```
 
 ---
 
-*Agosto de 2026 — Pós-Tech DevOps*
+## 6. Escalabilidade Automática (HPA) e Teste de Carga
+
+A escalabilidade horizontal foi configurada utilizando o *Horizontal Pod Autoscaler* (HPA), que monitora a utilização média de CPU dos Pods.
+
+### Configurações de HPA
+
+- **`evaluation-service`**: Mínimo de 2 réplicas, Máximo de 6 réplicas (alvo: `70%` de uso de CPU).
+- **`analytics-service`**: Mínimo de 1 réplica, Máximo de 5 réplicas (alvo: `65%` de uso de CPU).
+
+### Como Executar o Teste de Carga com `hey`
+
+Para testar a automação e visualizar os Pods escalando dinamicamente:
+
+```bash
+# 1. Em um terminal, acompanhe o HPA em tempo real
+kubectl get hpa -n evaluation -w
+
+# 2. Em outro terminal, envie tráfego sintético para o evaluation-service
+hey -z 2m -c 50 -q 10 http://$INGRESS_HOST/evaluate
+```
+
+Observe o aumento no consumo de CPU e a criação de novas réplicas no cluster.
+
+---
+
+## 7. Demonstração em Vídeo
+
+O ciclo completo de execução da aplicação local, validação de regras, infraestrutura na AWS e testes de carga pode ser acompanhado no vídeo de demonstração:
+
+Assistir ao Vídeo de Demonstração no YouTube.
+
+---
+
+## 8. Integrantes - Grupo 13
+
+- Larissa Nunes - RM 367056
+- Luiz Ferreira - RM 375308
+- Nicholas Lima - RM 374429
+- Thiago Souza - RM 374954
+- Vinicius Chiarelo - RM 375311
+
+FIAP - Pós-Tech DevOps & Cloud Architecture - 2026

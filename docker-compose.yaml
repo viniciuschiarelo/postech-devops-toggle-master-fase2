@@ -1,0 +1,102 @@
+services:
+  auth-service:
+    build: ./auth-service
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://auth_user:auth_password@auth-db:5432/auth
+      - MASTER_KEY=your_master_key_here
+      - PORT=8080					
+    depends_on:
+      auth-db:
+        condition: service_healthy
+
+  auth-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=auth_user
+      - POSTGRES_PASSWORD=auth_password
+      - POSTGRES_DB=auth
+    volumes:
+      - ./auth-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  flag-service:
+    build: ./flag-service
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=postgres://flag_user:flag_password@flag-db:5432/flags_db
+      - AUTH_SERVICE_URL=http://auth-service:8080
+      - PORT=8002
+    depends_on:
+      flag-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+
+  flag-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=flag_user
+      - POSTGRES_PASSWORD=flag_password
+      - POSTGRES_DB=flags_db
+    volumes:
+      - ./flag-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flag_user -d flags_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  targeting-service:
+    build: ./targeting-service
+    ports:
+      - "8003:8003"
+    environment: 
+      - DATABASE_URL=postgres://targeting_user:targeting_password@targeting-db:5432/targeting_db
+      - AUTH_SERVICE_URL=http://auth-service:8080
+      - PORT=8003
+    depends_on:
+      targeting-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+
+  targeting-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=targeting_user
+      - POSTGRES_PASSWORD=targeting_password
+      - POSTGRES_DB=targeting_db
+    volumes:
+      - ./targeting-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U targeting_user -d targeting_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5    
+  evaluation-service:
+    build: ./evaluation-service
+    ports:
+      - "8004:8004"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - FLAG_SERVICE_URL=http://flag-service:8002
+      - TARGETING_SERVICE_URL=http://targeting-service:8003
+      - SERVICE_API_KEY=tm_key_4d9630daa7a6457e84f0e86f03f5ef8e6f0d856981cf5fb9b3c9430a6b93ffee
+      - PORT=8004
+    depends_on:
+      redis:
+        condition: service_started
+      auth-service:
+        condition: service_started
+      flag-service:
+        condition: service_started
+      targeting-service:
+        condition: service_started
+  redis:
+    image: redis:7-alpined
