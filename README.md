@@ -135,7 +135,7 @@ Observe o aumento no consumo de CPU e a criação de novas réplicas no cluster.
 
 O ciclo completo de execução da aplicação local, validação de regras, infraestrutura na AWS e testes de carga pode ser acompanhado no vídeo de demonstração:
 
-Assistir ao Vídeo de Demonstração no YouTube.
+▶️ [Assistir ao Vídeo de Demonstração no YouTube](https://youtu.be/wJyUsJrKGtI)
 
 ---
 
