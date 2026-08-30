@@ -16,6 +16,14 @@
   <img src="https://img.shields.io/badge/DynamoDB-4053D6?style=for-the-badge&logo=amazondynamodb&logoColor=white" alt="DynamoDB">
 </p>
 
+## 📄 Enunciado do Exercício
+
+> Clique no link abaixo para acessar o PDF com o enunciado completo do Tech Challenge:
+>
+> 📎 [**Enunciado do Tech Challenge — ToggleMaster.pdf**](./assets/desafio.pdf)
+
+---
+
 ## 1. Sobre o Projeto
 
 O **ToggleMaster** é uma plataforma centralizada para gerenciamento e avaliação de **Feature Flags (Feature Toggles)** desenvolvida para a *DevOps Solutions Inc.* Após o sucesso do MVP monolítico na Fase 1, a alta demanda exigiu a evolução da solução para resolver gargalos de performance e escalabilidade.
@@ -78,8 +86,7 @@ kubectl apply -f k8s/
 kubectl get pods -A
 ```
 
----
-## 4.1 Testando localmente com Minikube
+### Testando Localmente com Minikube
 
 Para validar a infraestrutura Kubernetes localmente, sem necessidade de conta AWS, siga o passo a passo abaixo.
 
