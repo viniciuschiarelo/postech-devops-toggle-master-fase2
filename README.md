@@ -79,7 +79,92 @@ kubectl get pods -A
 ```
 
 ---
+## 4.1 Testando localmente com Minikube
 
+Para validar a infraestrutura Kubernetes localmente, sem necessidade de conta AWS, siga o passo a passo abaixo.
+
+> **⚠️ Pré-requisitos antes de começar**
+>
+> Antes de aplicar os manifests, você precisa resolver dois pontos obrigatórios:
+>
+> **1. Imagens Docker locais**
+> Os manifests apontam por padrão para imagens no Amazon ECR. Para rodar localmente, você deve **construir as imagens** e **carregá-las no Minikube**:
+>
+> ```bash
+> # No diretório raiz do projeto, build cada serviço:
+> (cd auth-service && docker build -t auth-service:latest .)
+> (cd flag-service && docker build -t flag-service:latest .)
+> (cd targeting-service && docker build -t targeting-service:latest .)
+> (cd evaluation-service && docker build -t evaluation-service:latest .)
+> (cd analytics-service && docker build -t analytics-service:latest .)
+>
+> # Carregue as imagens no Minikube:
+> minikube image load auth-service:latest
+> minikube image load flag-service:latest
+> minikube image load targeting-service:latest
+> minikube image load evaluation-service:latest
+> minikube image load analytics-service:latest
+> ```
+>
+> Em seguida, edite os arquivos `yaml/03-auth.yaml`, `yaml/04-flag.yaml`, `yaml/05-targeting.yaml`, `yaml/06-evaluation.yaml` e `yaml/07-analytics.yaml`, substituindo o campo `image:` pelo nome local (ex.: `auth-service:latest`) e adicione `imagePullPolicy: IfNotPresent`.
+>
+> **2. Banco de dados**
+> Os serviços `auth`, `flag` e `targeting` dependem de um PostgreSQL. Na AWS, esse banco é provisionado pelo Amazon RDS. Para rodar localmente, você precisa **criar os bancos** e atualizar as Secrets em `yaml/01-secrets.yaml` com as `DATABASE_URL` corretas no formato:
+>
+> ```
+> postgresql://<usuario>:<senha>@<host>:<porta>/<nome_do_banco>
+> ```
+>
+> O valor deve ser encodado em Base64:
+>
+> ```bash
+> echo -n "postgresql://postgres:postgres@<host>:5432/authdb" | base64
+> ```
+>
+> Cole o resultado no campo `DATABASE_URL` da Secret correspondente em `yaml/01-secrets.yaml`.
+
+### Execução
+
+```bash
+# 1. Iniciar cluster local
+minikube start --driver=docker
+
+# 2. Habilitar o Ingress Controller
+minikube addons enable ingress
+
+# 3. Configurar kubectl para usar o cluster minikube
+kubectl config use-context minikube
+
+# 4. Aplicar os manifests (a partir do diretório raiz do projeto)
+kubectl apply -f yaml/
+
+# 5. Verificar os pods em todos os namespaces
+kubectl get pods -A
+
+# 6. Verificar os Ingresses criados
+kubectl get ingress -A
+
+# 7. Obter o endereço IP do Ingress para testes
+INGRESS_HOST=$(kubectl get svc -n ingress-nginx \
+  -l app.kubernetes.io/name=ingress-nginx \
+  -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+
+# 8. Testar o endpoint de health do evaluation-service
+curl -i http://$INGRESS_HOST/evaluate/health
+```
+
+> **ℹ️ Comportamento esperado**
+>
+> - `analytics-service` → `Running` (não depende de banco)
+> - `auth`, `flag`, `targeting` → `CrashLoopBackOff` se o banco não estiver configurado nas Secrets
+> - `evaluation-service` → `CrashLoopBackOff` se Redis/SQS não estiverem acessíveis
+>
+> Para verificar o motivo de um crash, use:
+> ```bash
+> kubectl logs -n <namespace> <nome-do-pod>
+> ```
+
+---
 ## 5. Acesso Externo e Roteamento (Nginx Ingress)
 
 O Nginx Ingress Controller foi implantado via Helm, provisionando automaticamente um Load Balancer na AWS como ponto único de entrada da aplicação.

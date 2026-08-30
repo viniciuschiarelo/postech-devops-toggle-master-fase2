@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flag-config
+  namespace: flag
+data:
+  AUTH_SERVICE_URL: http://auth-service.auth.svc.cluster.local:8001
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: targeting-config
+  namespace: targeting
+data:
+  AUTH_SERVICE_URL: http://auth-service.auth.svc.cluster.local:8001
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: evaluation-config
+  namespace: evaluation
+data:
+  FLAG_SERVICE_URL: http://flag-service.flag.svc.cluster.local:8002
+  TARGETING_SERVICE_URL: http://targeting-service.targeting.svc.cluster.local:8003
+  AWS_REGION: us-east-1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analytics-config
+  namespace: analytics
+data:
+  AWS_REGION: us-east-1
+  AWS_DYNAMODB_TABLE: ToggleMasterAnalytics
+

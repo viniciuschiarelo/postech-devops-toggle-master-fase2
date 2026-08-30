@@ -1,0 +1,79 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: init-auth-db
+  namespace: auth
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: postgres:16-alpine
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: auth-secret
+                  key: DATABASE_URL
+          command:
+            - sh
+            - -c
+            - |
+              psql "$DATABASE_URL" <<'SQL'
+              CREATE TABLE IF NOT EXISTS api_keys (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, key_hash VARCHAR(64) NOT NULL UNIQUE, is_active BOOLEAN DEFAULT true, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);
+              INSERT INTO api_keys (name, key_hash) VALUES ('evaluation-service', '8f2e895eb556e60f9ccfd8cd8e754d5379ef320570fd47a8307e73968a10c3eb') ON CONFLICT (key_hash) DO NOTHING;
+              SQL
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: init-flag-db
+  namespace: flag
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: postgres:16-alpine
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: flag-secret
+                  key: DATABASE_URL
+          command:
+            - sh
+            - -c
+            - |
+              psql "$DATABASE_URL" <<'SQL'
+              CREATE TABLE IF NOT EXISTS flags (id SERIAL PRIMARY KEY, name VARCHAR(100) UNIQUE NOT NULL, description TEXT, is_enabled BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);
+              SQL
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: init-targeting-db
+  namespace: targeting
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: postgres:16-alpine
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: targeting-secret
+                  key: DATABASE_URL
+          command:
+            - sh
+            - -c
+            - |
+              psql "$DATABASE_URL" <<'SQL'
+              CREATE TABLE IF NOT EXISTS targeting_rules (id SERIAL PRIMARY KEY, flag_name VARCHAR(100) UNIQUE NOT NULL, is_enabled BOOLEAN NOT NULL DEFAULT true, rules JSONB NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);
+              SQL
+
