@@ -80,7 +80,7 @@ A infraestrutura foi provisionada via `eksctl` em conta pessoal (Opção B), per
 aws eks update-kubeconfig --region us-east-1 --name toggle-master-cluster
 
 # 2. Aplicar os manifestos de cada microsserviço
-kubectl apply -f k8s/
+kubectl apply -f yaml/
 
 # 3. Verificar o status dos Pods em todos os namespaces
 kubectl get pods -A
